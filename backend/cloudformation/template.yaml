@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: LinkedIn Outreach Tracker Backend
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref ContactsTable
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,x-api-key'"
+      AllowOrigin: "'https://raghavshah01.github.io'"
+
+Resources:
+  ContactsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: linkedin-outreach
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: contactId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: followUpDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: contactId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: status-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: followUpDate-index
+          KeySchema:
+            - AttributeName: followUpDate
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: linkedin-tracker-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: 
+                  - !GetAtt ContactsTable.Arn
+                  - !Sub "${ContactsTable.Arn}/index/*"
+
+  TrackerApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Name: linkedin-tracker-api
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,x-api-key'"
+        AllowOrigin: "'https://raghavshah01.github.io'"
+
+  TrackerApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    DependsOn: TrackerApiprodStage
+    Properties:
+      Name: linkedin-tracker-key
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref TrackerApi
+          StageName: prod
+
+  TrackerUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: TrackerApiprodStage
+    Properties:
+      UsagePlanName: linkedin-tracker-usage-plan
+      ApiStages:
+        - ApiId: !Ref TrackerApi
+          Stage: prod
+
+  TrackerUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref TrackerApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref TrackerUsagePlan
+
+  CreateContactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: contacts/create.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TrackerApi
+            Path: /contacts
+            Method: post
+            Auth:
+              ApiKeyRequired: true
+
+  ListContactsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: contacts/list.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TrackerApi
+            Path: /contacts
+            Method: get
+            Auth:
+              ApiKeyRequired: true
+
+  UpdateContactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: contacts/update.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TrackerApi
+            Path: /contacts/{id}
+            Method: put
+            Auth:
+              ApiKeyRequired: true
+
+  DeleteContactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda/
+      Handler: contacts/delete.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TrackerApi
+            Path: /contacts/{id}
+            Method: delete
+            Auth:
+              ApiKeyRequired: true
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL for Prod environment
+    Value: !Sub "https://${TrackerApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  DynamoDBTableName:
+    Description: Name of the DynamoDB table
+    Value: !Ref ContactsTable
+  ApiKeyId:
+    Description: API Key ID to retrieve from the AWS console
+    Value: !Ref TrackerApiKey

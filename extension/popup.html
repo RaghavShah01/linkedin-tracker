@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <h2>LinkedIn Tracker</h2>
+    <div class="status" id="api-status" title="API Status"></div>
+  </div>
+  
+  <div class="stats">
+    <p>Contacts logged today: <span id="today-count">0</span></p>
+  </div>
+  
+  <div class="list-container">
+    <h3>Recent Logs</h3>
+    <ul id="recent-list">
+      <!-- Populated by JS -->
+    </ul>
+  </div>
+
+  <a href="https://raghavshah01.github.io/linkedin-tracker" target="_blank" class="btn">Open Dashboard</a>
+
+  <script src="popup.js"></script>
+</body>
+</html>

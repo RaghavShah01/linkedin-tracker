@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Outreach Tracker",
+  "version": "1.0.0",
+  "description": "Auto-tracks LinkedIn connection requests, InMails, and messages for job search",
+  "permissions": ["storage", "activeTab", "scripting", "notifications"],
+  "host_permissions": ["https://www.linkedin.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["content_script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

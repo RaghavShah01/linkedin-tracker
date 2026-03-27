@@ -1,0 +1,10 @@
+{
+  "name": "linkedin-tracker-lambda",
+  "version": "1.0.0",
+  "description": "Lambda functions for LinkedIn Outreach Tracker",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "crypto": "^1.0.1"
+  }
+}
